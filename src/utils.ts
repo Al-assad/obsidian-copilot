@@ -1043,23 +1043,28 @@ function isCodexModel(model: BaseChatModel | string): boolean {
 }
 
 /**
- * Determines whether a GitHub Copilot model should use the Responses API.
- * Copilot Codex models reject `/chat/completions` and must be sent to `/responses`.
+ * Determines whether a model should use the Responses API.
+ * Codex-style models commonly reject `/chat/completions` and must be sent to `/responses`.
  * @param model - Minimal model configuration used for routing.
  * @returns True when the model should be routed to `/responses`.
  */
-export function shouldUseGitHubCopilotResponsesApi(
+export function shouldUseResponsesApi(
   model: Pick<CustomModel, "provider" | "name" | "useResponsesApi">
 ): boolean {
-  if ((model.provider as ChatModelProviders) !== ChatModelProviders.GITHUB_COPILOT) {
-    return false;
-  }
-
   if (model.useResponsesApi === true) {
     return true;
   }
 
-  return isCodexModel(model.name);
+  const provider = model.provider as ChatModelProviders;
+  if (
+    provider === ChatModelProviders.GITHUB_COPILOT ||
+    provider === ChatModelProviders.OPENAI ||
+    provider === ChatModelProviders.OPENAI_FORMAT
+  ) {
+    return isCodexModel(model.name);
+  }
+
+  return false;
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   getNotesFromTags,
   getUtf8ByteLength,
   isFolderMatch,
-  shouldUseGitHubCopilotResponsesApi,
+  shouldUseResponsesApi,
   processVariableNameForNotePath,
   removeThinkTags,
   stringToFormattedDateTime,
@@ -539,7 +539,7 @@ I need to consider:
 describe("shouldUseGitHubCopilotResponsesApi", () => {
   it("should enable responses API for GitHub Copilot codex models", () => {
     expect(
-      shouldUseGitHubCopilotResponsesApi({
+      shouldUseResponsesApi({
         provider: ChatModelProviders.GITHUB_COPILOT,
         name: "gpt-5.3-codex",
       })
@@ -548,17 +548,35 @@ describe("shouldUseGitHubCopilotResponsesApi", () => {
 
   it("should not enable responses API for non-codex GitHub Copilot models by default", () => {
     expect(
-      shouldUseGitHubCopilotResponsesApi({
+      shouldUseResponsesApi({
         provider: ChatModelProviders.GITHUB_COPILOT,
         name: "gpt-4.1",
       })
     ).toBe(false);
   });
 
-  it("should ignore codex names for non-Copilot providers", () => {
+  it("should enable responses API for OpenAI-format codex models", () => {
     expect(
-      shouldUseGitHubCopilotResponsesApi({
+      shouldUseResponsesApi({
+        provider: ChatModelProviders.OPENAI_FORMAT,
+        name: "gpt-5.3-codex",
+      })
+    ).toBe(true);
+  });
+
+  it("should enable responses API for OpenAI codex models", () => {
+    expect(
+      shouldUseResponsesApi({
         provider: ChatModelProviders.OPENAI,
+        name: "gpt-5.3-codex",
+      })
+    ).toBe(true);
+  });
+
+  it("should ignore codex names for unsupported providers", () => {
+    expect(
+      shouldUseResponsesApi({
+        provider: ChatModelProviders.ANTHROPIC,
         name: "gpt-5.3-codex",
       })
     ).toBe(false);
@@ -566,8 +584,18 @@ describe("shouldUseGitHubCopilotResponsesApi", () => {
 
   it("should allow explicit responses API opt-in for GitHub Copilot models", () => {
     expect(
-      shouldUseGitHubCopilotResponsesApi({
+      shouldUseResponsesApi({
         provider: ChatModelProviders.GITHUB_COPILOT,
+        name: "custom-model",
+        useResponsesApi: true,
+      })
+    ).toBe(true);
+  });
+
+  it("should allow explicit responses API opt-in for OpenAI-format models", () => {
+    expect(
+      shouldUseResponsesApi({
+        provider: ChatModelProviders.OPENAI_FORMAT,
         name: "custom-model",
         useResponsesApi: true,
       })

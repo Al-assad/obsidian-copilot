@@ -7,6 +7,7 @@ import { logError } from "@/logger";
 import { parseModelsResponse, StandardModel } from "@/settings/providerModels";
 import { err2String, getProviderInfo, safeFetch } from "@/utils";
 import { getApiKeyForProvider } from "@/utils/modelUtils";
+import { getSettings } from "@/settings/model";
 
 export interface FetchModelsResult {
   success: boolean;
@@ -47,7 +48,11 @@ export async function fetchModelsForProvider(
       return { success: false, models: [], error: "Failed to decrypt API key" };
     }
 
+    const settings = getSettings();
     let url = getProviderInfo(provider).listModelURL;
+    if (provider === ChatModelProviders.OPENAI && settings.openAIProxyBaseUrl?.trim()) {
+      url = `${settings.openAIProxyBaseUrl.replace(/\/+$/, "")}/models`;
+    }
     if (!url) {
       return { success: false, models: [], error: "Provider does not support model listing" };
     }

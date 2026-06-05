@@ -116,7 +116,7 @@ export function ModelImporter({
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [provider, isReady]);
+  }, [provider, isReady, credentialVersion]);
 
   // Auto-load models when expanded and ready
   useEffect(() => {
@@ -124,6 +124,13 @@ export function ModelImporter({
       void loadModels();
     }
   }, [expanded, isReady, models, loading, error, loadModels]);
+
+  useEffect(() => {
+    setModels(null);
+    setSelectedModel(null);
+    setVerificationMessage(null);
+    setError(null);
+  }, [credentialVersion]);
 
   const handleAddModel = async () => {
     if (!selectedModel) {

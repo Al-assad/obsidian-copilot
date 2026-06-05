@@ -23,7 +23,7 @@ import {
   ModelInfo,
   safeFetch,
   safeFetchNoThrow,
-  shouldUseGitHubCopilotResponsesApi,
+  shouldUseResponsesApi,
 } from "@/utils";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
@@ -225,7 +225,7 @@ export default class ChatModelManager {
         modelName: modelName,
         apiKey: await getDecryptedKey(customModel.apiKey || settings.openAIApiKey),
         configuration: {
-          baseURL: customModel.baseUrl,
+          baseURL: customModel.baseUrl || settings.openAIProxyBaseUrl,
           fetch: customModel.enableCors ? safeFetch : undefined,
           organization: await getDecryptedKey(customModel.openAIOrgId || settings.openAIOrgId),
         },
@@ -819,7 +819,7 @@ export default class ChatModelManager {
 
     // For GPT-5 models, automatically use Responses API for proper verbosity support
     const constructorConfig: Record<string, unknown> = { ...modelConfig };
-    const useCopilotResponses = shouldUseGitHubCopilotResponsesApi(model);
+    const shouldRouteToResponses = shouldUseResponsesApi(model);
     if (
       modelInfo.isGPT5 &&
       ((selectedModel.vendor as ChatModelProviders) === ChatModelProviders.OPENAI ||
@@ -829,9 +829,9 @@ export default class ChatModelManager {
       logInfo(`Enabling Responses API for GPT-5 model: ${model.name} (${selectedModel.vendor})`);
     }
 
-    if (useCopilotResponses) {
+    if (shouldRouteToResponses) {
       constructorConfig.useResponsesApi = true;
-      logInfo(`Enabling Responses API for GitHub Copilot model: ${model.name}`);
+      logInfo(`Enabling Responses API for model: ${model.name} (${selectedModel.vendor})`);
     }
 
     // For LM Studio, use ChatLMStudio by default for Responses API compatibility.
@@ -845,7 +845,7 @@ export default class ChatModelManager {
       return lmStudioInstance;
     }
 
-    if (useCopilotResponses) {
+    if ((model.provider as ChatModelProviders) === ChatModelProviders.GITHUB_COPILOT && shouldRouteToResponses) {
       return new GitHubCopilotResponsesModel(constructorConfig);
     }
 
@@ -909,7 +909,7 @@ export default class ChatModelManager {
         ...pingConfig,
         ...tokenConfig,
       };
-      const useCopilotResponses = shouldUseGitHubCopilotResponsesApi(model);
+      const shouldRouteToResponses = shouldUseResponsesApi(model);
 
       if (
         modelInfo.isGPT5 &&
@@ -919,7 +919,7 @@ export default class ChatModelManager {
         constructorConfig.useResponsesApi = true;
       }
 
-      if (useCopilotResponses) {
+      if (shouldRouteToResponses) {
         constructorConfig.useResponsesApi = true;
       }
 
@@ -929,7 +929,8 @@ export default class ChatModelManager {
         (model.provider as ChatModelProviders) === ChatModelProviders.LM_STUDIO &&
         model.useResponsesApi !== false
           ? new ChatLMStudio(constructorConfig)
-          : useCopilotResponses
+          : (model.provider as ChatModelProviders) === ChatModelProviders.GITHUB_COPILOT &&
+              shouldRouteToResponses
             ? new GitHubCopilotResponsesModel(constructorConfig)
             : new (this.getProviderConstructor(modelToTest))(constructorConfig);
       await testModel.invoke([{ role: "user", content: "hello" }], {

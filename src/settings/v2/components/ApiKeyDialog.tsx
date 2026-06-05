@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { ProviderSettingsKeyMap, SettingKeyProviders } from "@/constants";
 import { updateSetting, useSettingsValue } from "@/settings/model";
@@ -22,11 +23,12 @@ interface ApiKeyModalContentProps {
 interface ProviderKeyItem {
   provider: SettingKeyProviders;
   apiKey: string;
+  baseUrl?: string;
 }
 
 function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps) {
   // Subscribe to settings changes so the component re-renders when API keys are updated
-  useSettingsValue();
+  const settings = useSettingsValue();
   const [expandedProvider, setExpandedProvider] = useState<SettingKeyProviders | null>(null);
 
   const providers: ProviderKeyItem[] = getNeedSetKeyProvider().map((provider) => {
@@ -35,6 +37,7 @@ function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps
     return {
       provider: providerKey,
       apiKey,
+      baseUrl: providerKey === "openai" ? settings.openAIProxyBaseUrl : undefined,
     };
   });
 
@@ -42,6 +45,11 @@ function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps
     const currentKey = getApiKeyForProvider(provider);
     if (currentKey !== value) {
       updateSetting(ProviderSettingsKeyMap[provider], value);
+    }
+  };
+  const handleBaseUrlChange = (provider: SettingKeyProviders, value: string) => {
+    if (provider === "openai" && settings.openAIProxyBaseUrl !== value) {
+      updateSetting("openAIProxyBaseUrl", value);
     }
   };
 
@@ -95,6 +103,19 @@ function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps
                       </div>
                     )}
                   </div>
+                  {item.provider === "openai" && (
+                    <div className="tw-flex tw-flex-col tw-gap-1">
+                      <Input
+                        className="tw-max-w-full"
+                        value={settings.openAIProxyBaseUrl || ""}
+                        onChange={(e) => handleBaseUrlChange(item.provider, e.target.value)}
+                        placeholder="Base URL, e.g. https://www.micuapi.ai/v1"
+                      />
+                      <div className="tw-text-[10px] tw-text-muted sm:tw-text-xs">
+                        Optional. Fill this to route OpenAI-compatible requests through a custom endpoint.
+                      </div>
+                    </div>
+                  )}
                   <div>
                     {providerInfo.keyManagementURL && (
                       <a
@@ -112,11 +133,11 @@ function ApiKeyModalContent({ onClose, onGoToModelTab }: ApiKeyModalContentProps
                   <Collapsible open={isExpanded} className="tw-mt-2">
                     <CollapsibleContent className="tw-rounded-md tw-p-3">
                       <ModelImporter
-                        key={`${item.provider}:${item.apiKey}`}
+                        key={`${item.provider}:${item.apiKey}:${item.baseUrl || ""}`}
                         provider={item.provider}
                         isReady={Boolean(item.apiKey)}
                         expanded={isExpanded}
-                        credentialVersion={item.apiKey}
+                        credentialVersion={`${item.apiKey}:${item.baseUrl || ""}`}
                       />
                     </CollapsibleContent>
                   </Collapsible>

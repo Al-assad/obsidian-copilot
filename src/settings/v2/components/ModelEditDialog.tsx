@@ -298,8 +298,12 @@ const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
               </FormField>
             )}
 
-            {/* Responses API Toggle for LM Studio */}
-            {(localModel.provider as ChatModelProviders) === ChatModelProviders.LM_STUDIO && (
+            {/* Responses API Toggle for providers with compatible /responses endpoints */}
+            {[
+              ChatModelProviders.LM_STUDIO,
+              ChatModelProviders.OPENAI_FORMAT,
+              ChatModelProviders.OPENAI,
+            ].includes(localModel.provider as ChatModelProviders) && (
               <FormField label="Responses API">
                 <div className="tw-flex tw-items-center tw-gap-2">
                   <Checkbox
@@ -310,9 +314,9 @@ const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
                   <HelpTooltip
                     content={
                       <div className="tw-text-sm tw-text-muted">
-                        Use /v1/responses instead of /v1/chat/completions. Patches compatibility
-                        issues with LM Studio (text.format, tool definitions). Requires LM Studio
-                        0.3.6+.
+                        Use /v1/responses instead of /v1/chat/completions. Required for Codex-style
+                        models and useful for compatible OpenAI-format endpoints. LM Studio also
+                        uses this to patch compatibility issues with text.format and tool definitions.
                       </div>
                     }
                   >

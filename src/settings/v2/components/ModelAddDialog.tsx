@@ -729,6 +729,35 @@ export const ModelAddDialog: React.FC<ModelAddDialogProps> = ({
                 </Label>
               </div>
             )}
+            {[
+              ChatModelProviders.LM_STUDIO,
+              ChatModelProviders.OPENAI_FORMAT,
+              ChatModelProviders.OPENAI,
+            ].includes(model.provider as ChatModelProviders) && (
+              <div className="tw-flex tw-items-center tw-gap-2">
+                <Checkbox
+                  id="use-responses-api"
+                  checked={model.useResponsesApi !== false}
+                  onCheckedChange={(checked: boolean) =>
+                    setModel({ ...model, useResponsesApi: checked })
+                  }
+                />
+                <Label htmlFor="use-responses-api" className="tw-cursor-pointer">
+                  <div className="tw-flex tw-items-center tw-gap-1">
+                    <span className="tw-text-sm">Responses API</span>
+                    <HelpTooltip
+                      content={
+                        <div className="tw-text-sm tw-text-muted">
+                          Use /v1/responses instead of /v1/chat/completions. Required for Codex-style
+                          models and useful for compatible OpenAI-format endpoints.
+                        </div>
+                      }
+                      contentClassName="tw-max-w-96"
+                    />
+                  </div>
+                </Label>
+              </div>
+            )}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
