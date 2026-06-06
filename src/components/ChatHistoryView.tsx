@@ -130,7 +130,7 @@ function ChatHistoryPanel({ plugin }: ChatHistoryPanelProps) {
   }, [items, query]);
 
   const sortedItems = useMemo(
-    () => filteredItems.toSorted((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime()),
+    () => [...filteredItems].sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime()),
     [filteredItems]
   );
 

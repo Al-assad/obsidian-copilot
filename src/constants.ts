@@ -809,8 +809,8 @@ export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
 export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
   [COMMAND_IDS.NEW_CHAT]: "message-square-plus",
   [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "message-square",
-  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE]: "messages-square",
-  [COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW]: "messages-square",
+  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE]: "message-square-plus",
+  [COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW]: "message-square-plus",
   [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "message-square",
   [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "history",
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "terminal-square",

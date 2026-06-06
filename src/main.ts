@@ -219,7 +219,10 @@ export default class CopilotPlugin extends Plugin {
     this.addRibbonIcon("history", "Chat History", () => {
       void this.activateChatHistoryView();
     });
-    this.registerEmptyPaneCopilotButton();
+
+    if (Platform.isDesktopApp) {
+      this.registerEmptyPaneCopilotButton();
+    }
 
     registerCommands(this, undefined, getSettings());
 
