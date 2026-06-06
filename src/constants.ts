@@ -755,6 +755,7 @@ export const COMMAND_IDS = {
   LOAD_COPILOT_CHAT_CONVERSATION: "load-copilot-chat-conversation",
   NEW_CHAT: "new-chat",
   OPEN_COPILOT_CHAT_WINDOW: "chat-open-window",
+  OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE: "chat-open-window-in-main-workspace",
   SEARCH_ORAMA_DB: "copilot-search-orama-db",
   TOGGLE_COPILOT_CHAT_WINDOW: "chat-toggle-window",
   ADD_SELECTION_TO_CHAT_CONTEXT: "add-selection-to-chat-context",
@@ -783,6 +784,7 @@ export const COMMAND_NAMES: Record<CommandId, string> = {
   [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "Load Copilot chat conversation",
   [COMMAND_IDS.NEW_CHAT]: "New Copilot Chat",
   [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "Open Copilot Chat Window",
+  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE]: "Open Copilot Window",
   [COMMAND_IDS.SEARCH_ORAMA_DB]: "Search semantic index (debug)",
   [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "Toggle Copilot Chat Window",
   [COMMAND_IDS.ADD_SELECTION_TO_CHAT_CONTEXT]: "Add selection to chat context",
@@ -804,6 +806,7 @@ export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
 export const COMMAND_ICONS: Partial<Record<CommandId, string>> = {
   [COMMAND_IDS.NEW_CHAT]: "message-square-plus",
   [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW]: "message-square",
+  [COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE]: "messages-square",
   [COMMAND_IDS.TOGGLE_COPILOT_CHAT_WINDOW]: "message-square",
   [COMMAND_IDS.LOAD_COPILOT_CHAT_CONVERSATION]: "history",
   [COMMAND_IDS.TRIGGER_QUICK_COMMAND]: "terminal-square",

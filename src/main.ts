@@ -63,6 +63,7 @@ import {
   Notice,
   Platform,
   Plugin,
+  setIcon,
   TFile,
   WorkspaceLeaf,
 } from "obsidian";
@@ -197,9 +198,10 @@ export default class CopilotPlugin extends Plugin {
 
     this.initActiveLeafChangeHandler();
 
-    this.addRibbonIcon("message-square", "Open Copilot Chat", (evt: MouseEvent) => {
+    this.addRibbonIcon("message-square", "Open Copilot Sidecar", (evt: MouseEvent) => {
       void this.activateView();
     });
+    this.addRibbonOpenInTabIcon();
 
     registerCommands(this, undefined, getSettings());
 
@@ -643,8 +645,45 @@ export default class CopilotPlugin extends Plugin {
     }, 50);
   }
 
+  /**
+   * Open Copilot chat in the editor area without affecting the existing sidebar behavior.
+   */
+  async openChatInNewTab(): Promise<void> {
+    const existingEditorLeaf = this.app.workspace
+      .getLeavesOfType(CHAT_VIEWTYPE)
+      .find((leaf) => leaf.getRoot() === this.app.workspace.rootSplit);
+
+    if (existingEditorLeaf) {
+      this.app.workspace.revealLeaf(existingEditorLeaf);
+      window.setTimeout(() => {
+        this.emitChatIsVisible();
+      }, 50);
+      return;
+    }
+
+    await this.app.workspace.getLeaf(true).setViewState({
+      type: CHAT_VIEWTYPE,
+      active: true,
+    });
+
+    window.setTimeout(() => {
+      this.emitChatIsVisible();
+    }, 50);
+  }
+
   async deactivateView() {
     this.app.workspace.detachLeavesOfType(CHAT_VIEWTYPE);
+  }
+
+  /**
+   * Add a dedicated ribbon button that opens Copilot in the main workspace.
+   */
+  private addRibbonOpenInTabIcon(): void {
+    const ribbonEl = this.addRibbonIcon("messages-square", "Open Copilot Window", () => {
+      void this.openChatInNewTab();
+    });
+
+    setIcon(ribbonEl, "messages-square");
   }
 
   async loadSettings() {

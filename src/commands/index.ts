@@ -122,6 +122,10 @@ export function registerCommands(
     await plugin.activateView();
   });
 
+  addCommand(plugin, COMMAND_IDS.OPEN_COPILOT_CHAT_WINDOW_IN_MAIN_WORKSPACE, async () => {
+    await plugin.openChatInNewTab();
+  });
+
   addCommand(plugin, COMMAND_IDS.NEW_CHAT, async () => {
     clearRecordedPromptPayload();
     await plugin.newChat();

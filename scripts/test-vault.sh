@@ -64,10 +64,10 @@ BRANCH="$(git -C "$WORKTREE_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || ech
 BUILD_TS="$(date +%Y%m%d-%H%M%S)"
 echo "==> Writing branch-tagged manifest.json (branch: $BRANCH, build: $BUILD_TS)"
 rm -f "$PLUGIN_DIR/manifest.json"
-SRC="$WORKTREE_ROOT/manifest.json" DEST="$PLUGIN_DIR/manifest.json" BRANCH="$BRANCH" BUILD_TS="$BUILD_TS" node -e '
+SRC="$WORKTREE_ROOT/manifest.json" DEST="$PLUGIN_DIR/manifest.json" BRANCH="$BRANCH" BUILD_TS="$BUILD_TS" DISPLAY_NAME="Copilot-Re" node -e '
   const fs = require("fs");
   const m = JSON.parse(fs.readFileSync(process.env.SRC, "utf8"));
-  m.name = m.name + " [" + process.env.BRANCH + " @ " + process.env.BUILD_TS + "]";
+  m.name = process.env.DISPLAY_NAME + " [" + process.env.BRANCH + " @ " + process.env.BUILD_TS + "]";
   m.description = "[branch: " + process.env.BRANCH + " | build: " + process.env.BUILD_TS + "] " + m.description;
   fs.writeFileSync(process.env.DEST, JSON.stringify(m, null, 2) + "\n");
 '
