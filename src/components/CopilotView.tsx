@@ -48,7 +48,8 @@ export default class CopilotView extends ItemView {
 
   // Return a title for this view
   getTitle(): string {
-    return "Copilot Chat";
+    const currentChat = this.plugin.getCurrentChatHistory();
+    return currentChat ? `Copilot - ${currentChat.title}` : "Copilot Chat";
   }
 
   getDisplayText(): string {

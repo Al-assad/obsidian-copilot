@@ -7,6 +7,7 @@ import { PromptSortStrategy } from "./types";
 export const BREVILABS_API_BASE_URL = "https://api.brevilabs.com/v1";
 export const BREVILABS_MODELS_BASE_URL = "https://models.brevilabs.com/v1";
 export const CHAT_VIEWTYPE = "copilot-chat-view";
+export const CHAT_HISTORY_VIEWTYPE = "copilot-chat-history-view";
 export const USER_SENDER = "user";
 export const AI_SENDER = "ai";
 

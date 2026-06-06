@@ -124,6 +124,9 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [showChatUI, setShowChatUI] = useState(false);
   const [chatHistoryItems, setChatHistoryItems] = useState<ChatHistoryItem[]>([]);
+  const [currentLoadedChat, setCurrentLoadedChat] = useState<ChatHistoryItem | null>(() =>
+    plugin.getCurrentChatHistory()
+  );
   // null: keep default behavior; true: show; false: hide
   const [progressCardVisible, setProgressCardVisible] = useState<boolean | null>(null);
   const [indexingCardVisible, setIndexingCardVisible] = useState<boolean | null>(null);
@@ -703,6 +706,7 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     plugin.chatSelectionHighlightController.clearForNewChat();
     // Suppress web selection to prevent it from reappearing in new chat
     plugin.suppressCurrentWebSelection(webSelectionUrl);
+    plugin.clearCurrentChatHistory();
     // Respect the autoAddActiveContentToContext setting for all non-project chains
     if (selectedChain === ChainType.PROJECT_CHAIN) {
       setIncludeActiveNote(false);
@@ -804,6 +808,12 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     };
   }, [eventTarget, handleStopGenerating]);
 
+  useEffect(() => {
+    return plugin.subscribeCurrentChatHistory(() => {
+      setCurrentLoadedChat(plugin.getCurrentChatHistory());
+    });
+  }, [plugin]);
+
   const [prevAutoAddTuple, setPrevAutoAddTuple] = useState({
     autoAdd: settings.autoAddActiveContentToContext,
     chain: selectedChain,
@@ -834,6 +844,19 @@ const ChatInternal: React.FC<ChatProps & { chatInput: ReturnType<typeof useChatI
     <>
       <div className="tw-flex tw-size-full tw-flex-col tw-overflow-hidden">
         <NewVersionBanner currentVersion={plugin.manifest.version} />
+        {currentLoadedChat ? (
+          <div className="tw-shrink-0 tw-border-b tw-border-border tw-px-3 tw-py-1.5">
+            <div
+              className="tw-bg-muted tw-inline-flex tw-max-w-full tw-items-center tw-gap-1.5 tw-rounded-md tw-border tw-border-border tw-px-2 tw-py-1 tw-text-xs tw-text-muted"
+              title={currentLoadedChat.title}
+            >
+              <span className="tw-shrink-0">Loaded chat</span>
+              <span className="tw-max-w-64 tw-truncate tw-font-medium tw-text-normal">
+                {currentLoadedChat.title}
+              </span>
+            </div>
+          </div>
+        ) : null}
         <ChatMessages
           chatHistory={chatHistory}
           currentAiMessage={currentAiMessage}

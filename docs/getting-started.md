@@ -69,6 +69,7 @@ You can open Copilot in several ways:
 
 - Click the **robot icon** in the left ribbon (sidebar)
 - Click the **open-in-tab icon** in the left ribbon to open Copilot in the main workspace
+- Click the **history icon** in the left ribbon to browse saved chat history
 - Use the command palette: `Ctrl/Cmd+P` → **Open Copilot Chat Window**
 - Use the command palette: `Ctrl/Cmd+P` → **Open Copilot Chat Window in Main Workspace**
 - Use the hotkey `Ctrl/Cmd+P` → **Toggle Copilot Chat Window** to show/hide it
@@ -81,6 +82,8 @@ By default, Copilot opens as a **view** (sidebar panel). You can change this in 
 - **Editor** — Opens as an editor tab, giving it more screen space
 
 The new **Open Copilot Chat Window in Main Workspace** entry opens Copilot in the editor area. If a main-workspace Copilot tab is already open, it focuses that tab instead of opening another one.
+
+The **Chat History** sidebar entry lists saved conversations by most recent use. Search for a conversation, then select it to open Copilot in the main workspace and load that chat.
 
 ---
 

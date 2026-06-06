@@ -8,6 +8,7 @@ import {
 } from "@/aiParams";
 import { NoteSelectedTextContext, SelectedTextContext } from "@/types/message";
 import { registerCommands } from "@/commands";
+import ChatHistoryView from "@/components/ChatHistoryView";
 import CopilotView from "@/components/CopilotView";
 import { APPLY_VIEW_TYPE, ApplyView } from "@/components/composer/ApplyView";
 import { LoadChatHistoryModal } from "@/components/modals/LoadChatHistoryModal";
@@ -18,7 +19,13 @@ import { migrateCommands, suggestDefaultCommands } from "@/commands/migrator";
 import { migrateSystemPromptsFromSettings } from "@/system-prompts/migration";
 import { SystemPromptRegister } from "@/system-prompts/systemPromptRegister";
 import { ProjectRegister } from "@/projects/projectRegister";
-import { ABORT_REASON, CHAT_VIEWTYPE, DEFAULT_OPEN_AREA, EVENT_NAMES } from "@/constants";
+import {
+  ABORT_REASON,
+  CHAT_HISTORY_VIEWTYPE,
+  CHAT_VIEWTYPE,
+  DEFAULT_OPEN_AREA,
+  EVENT_NAMES,
+} from "@/constants";
 import { ChatManager } from "@/core/ChatManager";
 import { MessageRepository } from "@/core/MessageRepository";
 import { logError, logInfo, logWarn } from "@/logger";
@@ -106,6 +113,8 @@ export default class CopilotPlugin extends Plugin {
   private lastSelectionSignature?: string;
   private webSelectionTracker?: WebSelectionTracker;
   private readonly chatHistoryLastAccessedAtManager = new RecentUsageManager<string>();
+  private currentChatHistory: ChatHistoryItem | null = null;
+  private currentChatHistoryListeners: Set<() => void> = new Set();
   async onload(): Promise<void> {
     // Reason: clear stale module-level persistence state + KeychainService
     // singleton left over from a previous plugin lifecycle in the same
@@ -194,6 +203,10 @@ export default class CopilotPlugin extends Plugin {
     }
 
     this.registerView(CHAT_VIEWTYPE, (leaf: WorkspaceLeaf) => new CopilotView(leaf, this));
+    this.registerView(
+      CHAT_HISTORY_VIEWTYPE,
+      (leaf: WorkspaceLeaf) => new ChatHistoryView(leaf, this)
+    );
     this.registerView(APPLY_VIEW_TYPE, (leaf: WorkspaceLeaf) => new ApplyView(leaf));
 
     this.initActiveLeafChangeHandler();
@@ -202,6 +215,9 @@ export default class CopilotPlugin extends Plugin {
       void this.activateView();
     });
     this.addRibbonOpenInTabIcon();
+    this.addRibbonIcon("history", "Chat History", () => {
+      void this.activateChatHistoryView();
+    });
 
     registerCommands(this, undefined, getSettings());
 
@@ -339,6 +355,36 @@ export default class CopilotPlugin extends Plugin {
 
   updateUserMessageHistory(newMessage: string) {
     this.userMessageHistory = [...this.userMessageHistory, newMessage];
+  }
+
+  /**
+   * Subscribe to current loaded chat-history metadata changes.
+   */
+  subscribeCurrentChatHistory(listener: () => void): () => void {
+    this.currentChatHistoryListeners.add(listener);
+    return () => {
+      this.currentChatHistoryListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Return the currently loaded chat-history item, if this chat came from history.
+   */
+  getCurrentChatHistory(): ChatHistoryItem | null {
+    return this.currentChatHistory;
+  }
+
+  /**
+   * Clear the current chat-history marker when starting an unsaved/new conversation.
+   */
+  clearCurrentChatHistory(): void {
+    this.setCurrentChatHistory(null);
+  }
+
+  private setCurrentChatHistory(chatHistory: ChatHistoryItem | null): void {
+    this.currentChatHistory = chatHistory;
+    this.currentChatHistoryListeners.forEach((listener) => listener());
+    this.app.workspace.trigger("layout-change");
   }
 
   async autosaveCurrentChat() {
@@ -649,9 +695,7 @@ export default class CopilotPlugin extends Plugin {
    * Open Copilot chat in the editor area without affecting the existing sidebar behavior.
    */
   async openChatInNewTab(): Promise<void> {
-    const existingEditorLeaf = this.app.workspace
-      .getLeavesOfType(CHAT_VIEWTYPE)
-      .find((leaf) => leaf.getRoot() === this.app.workspace.rootSplit);
+    const existingEditorLeaf = this.getMainWorkspaceCopilotLeaf();
 
     if (existingEditorLeaf) {
       this.app.workspace.revealLeaf(existingEditorLeaf);
@@ -669,6 +713,22 @@ export default class CopilotPlugin extends Plugin {
     window.setTimeout(() => {
       this.emitChatIsVisible();
     }, 50);
+  }
+
+  /**
+   * Open the left sidebar chat-history navigator.
+   */
+  async activateChatHistoryView(): Promise<void> {
+    const leaves = this.app.workspace.getLeavesOfType(CHAT_HISTORY_VIEWTYPE);
+    if (leaves.length > 0) {
+      this.app.workspace.revealLeaf(leaves[0]);
+      return;
+    }
+
+    await this.app.workspace.getLeftLeaf(false).setViewState({
+      type: CHAT_HISTORY_VIEWTYPE,
+      active: true,
+    });
   }
 
   async deactivateView() {
@@ -844,12 +904,24 @@ export default class CopilotPlugin extends Plugin {
     // Load messages using ChatUIState (which now uses ChatPersistenceManager internally)
     await this.chatUIState.loadChatHistory(file);
 
+    const createdAt = extractChatDate(file);
+    const persistedLastAccessedAtMs = extractChatLastAccessedAtMs(file);
+    const effectiveLastAccessedAtMs = this.chatHistoryLastAccessedAtManager.getEffectiveLastUsedAt(
+      file.path,
+      persistedLastAccessedAtMs ?? createdAt.getTime()
+    );
+    this.setCurrentChatHistory({
+      id: file.path,
+      title: extractChatTitle(file),
+      createdAt,
+      lastAccessedAt: new Date(effectiveLastAccessedAtMs),
+    });
+
     // Touch "lastAccessedAt" timestamp (throttled to avoid frequent writes)
     void this.touchChatHistoryLastAccessedAt(file);
 
     // Update the view
-    const copilotView = (existingView || this.app.workspace.getLeavesOfType(CHAT_VIEWTYPE)[0])
-      ?.view as CopilotView;
+    const copilotView = (this.getMainWorkspaceCopilotLeaf() || existingView)?.view as CopilotView;
     if (copilotView) {
       copilotView.updateView();
     }
@@ -859,6 +931,17 @@ export default class CopilotPlugin extends Plugin {
     const file = await resolveFileByPath(this.app, fileId);
     if (file) {
       await this.loadChatHistory(file);
+    } else {
+      throw new Error("Chat file not found.");
+    }
+  }
+
+  async loadChatByIdInMainWorkspace(fileId: string): Promise<void> {
+    const file = await resolveFileByPath(this.app, fileId);
+    if (file) {
+      await this.openChatInNewTab();
+      await this.loadChatHistory(file);
+      this.refreshChatHistoryViews();
     } else {
       throw new Error("Chat file not found.");
     }
@@ -875,6 +958,26 @@ export default class CopilotPlugin extends Plugin {
     } else {
       throw new Error("Chat file not found.");
     }
+  }
+
+  /**
+   * Re-render open chat-history navigator views after history metadata changes.
+   */
+  private refreshChatHistoryViews(): void {
+    this.app.workspace.getLeavesOfType(CHAT_HISTORY_VIEWTYPE).forEach((leaf) => {
+      if (leaf.view instanceof ChatHistoryView) {
+        leaf.view.refresh();
+      }
+    });
+  }
+
+  /**
+   * Find the Copilot chat tab hosted in the main editor workspace.
+   */
+  private getMainWorkspaceCopilotLeaf(): WorkspaceLeaf | undefined {
+    return this.app.workspace
+      .getLeavesOfType(CHAT_VIEWTYPE)
+      .find((leaf) => leaf.getRoot() === this.app.workspace.rootSplit);
   }
 
   async updateChatTitle(fileId: string, newTitle: string): Promise<void> {
@@ -909,9 +1012,22 @@ export default class CopilotPlugin extends Plugin {
         }, 500); // Reduced timeout for better performance
       });
 
+      if (this.currentChatHistory?.id === fileId) {
+        this.setCurrentChatHistory({
+          ...this.currentChatHistory,
+          title: newTitle.trim(),
+        });
+      }
+
       new Notice("Chat title updated.");
     } else if (await resolveFileByPath(this.app, fileId)) {
       await patchFrontmatter(this.app, fileId, { topic: newTitle.trim() });
+      if (this.currentChatHistory?.id === fileId) {
+        this.setCurrentChatHistory({
+          ...this.currentChatHistory,
+          title: newTitle.trim(),
+        });
+      }
       new Notice("Chat title updated.");
     } else {
       throw new Error("Chat file not found.");
@@ -922,9 +1038,15 @@ export default class CopilotPlugin extends Plugin {
     const file = this.app.vault.getAbstractFileByPath(fileId);
     if (file instanceof TFile) {
       await trashFile(this.app, file);
+      if (this.currentChatHistory?.id === fileId) {
+        this.clearCurrentChatHistory();
+      }
       new Notice("Chat deleted.");
     } else if (await this.app.vault.adapter.exists(fileId)) {
       await this.app.vault.adapter.remove(fileId);
+      if (this.currentChatHistory?.id === fileId) {
+        this.clearCurrentChatHistory();
+      }
       new Notice("Chat deleted.");
     } else {
       throw new Error("Chat file not found.");
@@ -963,6 +1085,7 @@ export default class CopilotPlugin extends Plugin {
 
     // Clear messages through ChatUIState (which also clears chain memory)
     this.chatUIState.clearMessages();
+    this.clearCurrentChatHistory();
 
     // Update view if it exists
     if (existingView) {
