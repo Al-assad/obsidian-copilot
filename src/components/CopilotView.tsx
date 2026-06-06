@@ -96,9 +96,9 @@ export default class CopilotView extends ItemView {
   }
 
   /**
-   * Observe --keyboard-height on <html> style to toggle a class on the
-   * parent .workspace-drawer when the soft keyboard is open.
-   * CSS uses this class to hide drawer header elements on mobile.
+   * Observe --keyboard-height on <html> style to toggle keyboard-open classes
+   * on this view and, when applicable, the parent .workspace-drawer.
+   * CSS uses these classes to reclaim vertical space on mobile.
    *
    * Reason: The drawer lookup is inside the callback (not at setup time) because
    * the view can be moved from editor tab to drawer without triggering onOpen again.
@@ -111,6 +111,12 @@ export default class CopilotView extends ItemView {
 
     const syncKeyboardClass = () => {
       const drawer = this.containerEl.closest<HTMLElement>(".workspace-drawer");
+      const kbHeight = parseFloat(
+        this.containerEl.doc.documentElement.style.getPropertyValue("--keyboard-height") || "0"
+      );
+      const isKeyboardOpen = kbHeight > 0;
+
+      this.containerEl.classList.toggle("copilot-keyboard-open", isKeyboardOpen);
 
       // Reason: If the view moved out of its previous drawer, clear the class on the old one
       // so drawer chrome (header/tab options) is restored.
@@ -124,10 +130,7 @@ export default class CopilotView extends ItemView {
       // Reason: Check if this view itself is inside the active tab content, rather than
       // querying by data-type which is more brittle across Obsidian versions.
       const isCopilotActive = !!this.containerEl.closest(".workspace-drawer-active-tab-content");
-      const kbHeight = parseFloat(
-        this.containerEl.doc.documentElement.style.getPropertyValue("--keyboard-height") || "0"
-      );
-      drawer.classList.toggle("copilot-keyboard-open", isCopilotActive && kbHeight > 0);
+      drawer.classList.toggle("copilot-keyboard-open", isCopilotActive && isKeyboardOpen);
     };
 
     this.keyboardObserver = new MutationObserver(syncKeyboardClass);
@@ -232,6 +235,7 @@ export default class CopilotView extends ItemView {
     // been detached from the drawer DOM by the time onClose fires.
     this.lastDrawerEl?.classList.remove("copilot-keyboard-open");
     this.lastDrawerEl = null;
+    this.containerEl.classList.remove("copilot-keyboard-open");
 
     if (this.root) {
       this.root.unmount();

@@ -896,6 +896,35 @@ body.is-mobile .workspace-drawer.copilot-keyboard-open .workspace-drawer-tab-opt
   display: none !important;
 }
 
+/* Mobile chat compact layout: keep the editor-tab chat usable when the iOS keyboard is open. */
+body.is-mobile .workspace-leaf-content[data-type="copilot-chat-view"] .copilot-relevant-notes {
+  padding-bottom: var(--size-4-1);
+}
+
+body.is-mobile
+  .workspace-leaf-content[data-type="copilot-chat-view"]
+  .copilot-relevant-notes-header {
+  padding-bottom: var(--size-4-1);
+}
+
+body.is-mobile
+  .workspace-leaf-content[data-type="copilot-chat-view"]
+  .copilot-relevant-notes-empty {
+  display: none !important;
+}
+
+body.is-mobile
+  .workspace-leaf-content[data-type="copilot-chat-view"].copilot-keyboard-open
+  .copilot-relevant-notes {
+  display: none !important;
+}
+
+body.is-mobile
+  .workspace-leaf-content[data-type="copilot-chat-view"].copilot-keyboard-open
+  .copilot-chat-controls {
+  display: none !important;
+}
+
 /* Collapsible sources styling */
 .copilot-sources {
   margin-top: var(--size-4-1);

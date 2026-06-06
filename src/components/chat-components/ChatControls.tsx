@@ -251,7 +251,7 @@ export function ChatControls({
   };
 
   return (
-    <div className="tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
+    <div className="copilot-chat-controls tw-flex tw-w-full tw-items-center tw-justify-between tw-p-1">
       <div className="tw-flex-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -334,12 +334,12 @@ export const RelevantNotes = memo(
     return (
       <div
         className={cn(
-          "tw-w-full tw-border tw-border-solid tw-border-transparent tw-border-b-border tw-pb-2",
+          "copilot-relevant-notes tw-w-full tw-border tw-border-solid tw-border-transparent tw-border-b-border tw-pb-2",
           className
         )}
       >
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <div className="tw-flex tw-items-center tw-justify-between tw-pb-2 tw-pl-1">
+          <div className="copilot-relevant-notes-header tw-flex tw-items-center tw-justify-between tw-pb-2 tw-pl-1">
             <div className="tw-flex tw-flex-1 tw-items-center tw-gap-2">
               <span className="tw-font-semibold tw-text-normal">Relevant Notes</span>
               <HelpTooltip
@@ -377,7 +377,7 @@ export const RelevantNotes = memo(
             </div>
           </div>
           {relevantNotes.length === 0 && hasIndex && (
-            <div className="tw-flex tw-max-h-12 tw-flex-wrap tw-items-center tw-gap-x-2 tw-gap-y-1 tw-overflow-y-hidden tw-px-1">
+            <div className="copilot-relevant-notes-empty tw-flex tw-max-h-12 tw-flex-wrap tw-items-center tw-gap-x-2 tw-gap-y-1 tw-overflow-y-hidden tw-px-1">
               <span className="tw-text-xs tw-text-muted">No relevant notes found</span>
             </div>
           )}
