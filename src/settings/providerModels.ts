@@ -407,20 +407,21 @@ export interface ProviderResponseMap {
   [ChatModelProviders.XAI]: XAIModelResponse;
   [ChatModelProviders.OPENROUTERAI]: OpenRouterAIModelResponse;
   [ChatModelProviders.SILICONFLOW]: SiliconFlowModelResponse;
-  [ChatModelProviders.COPILOT_PLUS]: null;
   [ChatModelProviders.AZURE_OPENAI]: null;
   [ChatModelProviders.AMAZON_BEDROCK]: unknown;
   [ChatModelProviders.GITHUB_COPILOT]: GitHubCopilotModelResponse;
 }
 
 // Adapter type definition - converts provider-specific models to standard format
-export type ModelAdapter<T extends SettingKeyProviders> = (
+type SupportedProviderModelKey = keyof ProviderResponseMap & SettingKeyProviders;
+
+export type ModelAdapter<T extends SupportedProviderModelKey> = (
   data: ProviderResponseMap[T]
 ) => StandardModel[];
 
 // Create adapter function type
 export type ProviderModelAdapters = {
-  [K in SettingKeyProviders]?: ModelAdapter<K>;
+  [K in SupportedProviderModelKey]?: ModelAdapter<K>;
 };
 
 /**

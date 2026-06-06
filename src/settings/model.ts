@@ -15,6 +15,7 @@ import {
   EmbeddingModelProviders,
   SEND_SHORTCUT,
 } from "@/constants";
+import { ChatModelProviders, ChatModels, EmbeddingModels } from "@/constants";
 
 /**
  * We used to store commands in the settings file with the following interface.
@@ -374,6 +375,32 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
     settingsToSanitize.userId = uuidv4();
   }
 
+  const legacyChatModelKey = ChatModels.COPILOT_PLUS_FLASH + "|" + ChatModelProviders.COPILOT_PLUS;
+  const legacyEmbeddingModelKeys = new Set([
+    EmbeddingModels.COPILOT_PLUS_SMALL + "|" + EmbeddingModelProviders.COPILOT_PLUS,
+    EmbeddingModels.COPILOT_PLUS_LARGE + "|" + EmbeddingModelProviders.COPILOT_PLUS_JINA,
+    EmbeddingModels.COPILOT_PLUS_MULTILINGUAL + "|" + EmbeddingModelProviders.COPILOT_PLUS_JINA,
+  ]);
+
+  if (settingsToSanitize.defaultModelKey === legacyChatModelKey) {
+    settingsToSanitize.defaultModelKey = DEFAULT_SETTINGS.defaultModelKey;
+  }
+  if (legacyEmbeddingModelKeys.has(settingsToSanitize.embeddingModelKey)) {
+    settingsToSanitize.embeddingModelKey = DEFAULT_SETTINGS.embeddingModelKey;
+  }
+
+  const removedChatProviders = new Set<string>([ChatModelProviders.COPILOT_PLUS]);
+  const removedEmbeddingProviders = new Set<string>([
+    EmbeddingModelProviders.COPILOT_PLUS,
+    EmbeddingModelProviders.COPILOT_PLUS_JINA,
+  ]);
+
+  if (Array.isArray(settingsToSanitize.activeModels)) {
+    settingsToSanitize.activeModels = settingsToSanitize.activeModels.filter(
+      (model) => !removedChatProviders.has(String(model.provider))
+    );
+  }
+
   // fix: Maintain consistency between EmbeddingModelProviders.AZURE_OPENAI and ChatModelProviders.AZURE_OPENAI,
   // where it was 'azure_openai' before EmbeddingModelProviders.AZURE_OPENAI.
   if (!settingsToSanitize.activeEmbeddingModels) {
@@ -382,12 +409,14 @@ export function sanitizeSettings(settings: CopilotSettings): CopilotSettings {
       enabled: true,
     }));
   } else {
-    settingsToSanitize.activeEmbeddingModels = settingsToSanitize.activeEmbeddingModels.map((m) => {
-      return {
-        ...m,
-        provider: normalizeModelProvider(m.provider),
-      };
-    });
+    settingsToSanitize.activeEmbeddingModels = settingsToSanitize.activeEmbeddingModels
+      .map((m) => {
+        return {
+          ...m,
+          provider: normalizeModelProvider(m.provider),
+        };
+      })
+      .filter((model) => !removedEmbeddingProviders.has(String(model.provider)));
   }
 
   const sanitizedSettings: CopilotSettings = { ...settingsToSanitize };

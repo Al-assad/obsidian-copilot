@@ -1,6 +1,5 @@
 import { setChainType, setModelKey } from "@/aiParams";
 import { ChainType } from "@/chainType";
-import { CopilotPlusExpiredModal } from "@/components/modals/CopilotPlusExpiredModal";
 import {
   ChatModelProviders,
   ChatModels,
@@ -8,18 +7,17 @@ import {
   EmbeddingModels,
   PlusUtmMedium,
 } from "@/constants";
-import { BrevilabsClient } from "@/LLMProviders/brevilabsClient";
 import { logError, logInfo } from "@/logger";
-import { getSettings, setSettings, updateSetting, useSettingsValue } from "@/settings/model";
+import { getSettings, setSettings, updateSetting } from "@/settings/model";
 import { Notice } from "obsidian";
-import React from "react";
 
-export const DEFAULT_COPILOT_PLUS_CHAT_MODEL = ChatModels.COPILOT_PLUS_FLASH;
+export const DEFAULT_COPILOT_PLUS_CHAT_MODEL = ChatModels.OPENROUTER_GEMINI_2_5_FLASH;
 const DEFAULT_COPILOT_PLUS_CHAT_MODEL_KEY =
-  DEFAULT_COPILOT_PLUS_CHAT_MODEL + "|" + ChatModelProviders.COPILOT_PLUS;
-export const DEFAULT_COPILOT_PLUS_EMBEDDING_MODEL = EmbeddingModels.COPILOT_PLUS_SMALL;
+  DEFAULT_COPILOT_PLUS_CHAT_MODEL + "|" + ChatModelProviders.OPENROUTERAI;
+export const DEFAULT_COPILOT_PLUS_EMBEDDING_MODEL =
+  EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL;
 export const DEFAULT_COPILOT_PLUS_EMBEDDING_MODEL_KEY =
-  DEFAULT_COPILOT_PLUS_EMBEDDING_MODEL + "|" + EmbeddingModelProviders.COPILOT_PLUS;
+  DEFAULT_COPILOT_PLUS_EMBEDDING_MODEL + "|" + EmbeddingModelProviders.OPENROUTERAI;
 
 // ============================================================================
 // SELF-HOST MODE VALIDATION
@@ -46,9 +44,6 @@ const SELF_HOST_GRACE_PERIOD_MS = 15 * 24 * 60 * 60 * 1000;
 
 /** Number of successful validations required for permanent self-host mode */
 const SELF_HOST_PERMANENT_VALIDATION_COUNT = 3;
-
-/** Plans that qualify for self-host mode */
-const SELF_HOST_ELIGIBLE_PLANS = ["believer", "supporter"];
 
 /**
  * Check if self-host access is valid.
@@ -92,12 +87,13 @@ export function isPlusModel(modelKey: string): boolean {
  * Use this for synchronous checks (e.g., model validation, UI state).
  */
 export function isPlusEnabled(): boolean {
-  const settings = getSettings();
-  // Self-host mode with valid plan validation bypasses Plus requirements
-  if (isSelfHostModeValid()) {
-    return true;
-  }
-  return settings.isPlusUser === true;
+  // const settings = getSettings();
+  // // Self-host mode with valid plan validation bypasses Plus requirements
+  // if (isSelfHostModeValid()) {
+  //   return true;
+  // }
+  // return settings.isPlusUser === true;
+  return true;
 }
 
 /**
@@ -105,24 +101,7 @@ export function isPlusEnabled(): boolean {
  * Returns true when self-host mode is valid to allow offline usage.
  */
 export function useIsPlusUser(): boolean | undefined {
-  const settings = useSettingsValue();
-  // Self-host mode with valid plan validation bypasses Plus requirements (requires license key)
-  if (
-    settings.plusLicenseKey &&
-    settings.enableSelfHostMode &&
-    settings.selfHostModeValidatedAt != null
-  ) {
-    // Permanently valid after 3 successful validations
-    if (settings.selfHostValidationCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {
-      return true;
-    }
-    // Otherwise, check grace period
-    const isValid = Date.now() - settings.selfHostModeValidatedAt < SELF_HOST_GRACE_PERIOD_MS;
-    if (isValid) {
-      return true;
-    }
-  }
-  return settings.isPlusUser;
+  return true;
 }
 
 /**
@@ -130,31 +109,9 @@ export function useIsPlusUser(): boolean | undefined {
  * When self-host mode is valid, this returns true to allow offline usage.
  */
 export async function checkIsPlusUser(
-  context?: Record<string, unknown>
+  _context?: Record<string, unknown>
 ): Promise<boolean | undefined> {
-  // Self-host mode with valid plan validation bypasses license check
-  if (isSelfHostModeValid()) {
-    return true;
-  }
-
-  if (!getSettings().plusLicenseKey) {
-    turnOffPlus();
-    return false;
-  }
-  const brevilabsClient = BrevilabsClient.getInstance();
-  const result = await brevilabsClient.validateLicenseKey(context);
-  return result.isValid;
-}
-
-/** Check if the user is on a plan that qualifies for self-host mode. */
-async function isSelfHostEligiblePlan(): Promise<boolean> {
-  if (!getSettings().plusLicenseKey) {
-    return false;
-  }
-  const brevilabsClient = BrevilabsClient.getInstance();
-  const result = await brevilabsClient.validateLicenseKey();
-  const planName = result.plan?.toLowerCase();
-  return planName != null && SELF_HOST_ELIGIBLE_PLANS.includes(planName);
+  return true;
 }
 
 /**
@@ -169,52 +126,7 @@ async function isSelfHostEligiblePlan(): Promise<boolean> {
  *      (permanent count >= 3 OR within 15-day grace period)
  */
 export function useIsSelfHostEligible(): boolean | undefined {
-  const settings = useSettingsValue();
-  const [isEligible, setIsEligible] = React.useState<boolean | undefined>(undefined);
-
-  React.useEffect(() => {
-    // No license key = not eligible, regardless of cached validation state.
-    // Also force self-host mode OFF so the toggle reflects the revoked state.
-    if (!settings.plusLicenseKey) {
-      if (settings.enableSelfHostMode) {
-        updateSetting("enableSelfHostMode", false);
-      }
-      setIsEligible(false);
-      return;
-    }
-
-    // Has license key - always verify via API to handle key changes (e.g. believer → plus).
-    // Fall back to cached validation only when offline.
-    isSelfHostEligiblePlan()
-      .then((eligible) => {
-        if (!eligible && settings.enableSelfHostMode) {
-          updateSetting("enableSelfHostMode", false);
-        }
-        setIsEligible(eligible);
-      })
-      .catch(() => {
-        // Offline fallback: trust cached validation state
-        if (settings.selfHostValidationCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {
-          setIsEligible(true);
-          return;
-        }
-        if (
-          settings.selfHostModeValidatedAt != null &&
-          Date.now() - settings.selfHostModeValidatedAt < SELF_HOST_GRACE_PERIOD_MS
-        ) {
-          setIsEligible(true);
-          return;
-        }
-        setIsEligible(false);
-      });
-  }, [
-    settings.plusLicenseKey,
-    settings.enableSelfHostMode,
-    settings.selfHostModeValidatedAt,
-    settings.selfHostValidationCount,
-  ]);
-
-  return isEligible;
+  return true;
 }
 
 /**
@@ -231,37 +143,12 @@ export function useIsSelfHostEligible(): boolean | undefined {
  * @returns true if validation passed, false if user should not enable
  */
 export async function validateSelfHostMode(): Promise<boolean> {
-  const settings = getSettings();
-
-  // Already permanently validated - allow re-enable (offline-safe)
-  if (settings.selfHostValidationCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {
-    updateSetting("selfHostModeValidatedAt", Date.now());
-    logInfo("Self-host mode re-enabled (permanently validated)");
-    return true;
-  }
-
-  // Within grace period - allow re-enable (offline-safe)
-  if (
-    settings.selfHostModeValidatedAt != null &&
-    Date.now() - settings.selfHostModeValidatedAt < SELF_HOST_GRACE_PERIOD_MS
-  ) {
-    logInfo("Self-host mode re-enabled (within grace period)");
-    return true;
-  }
-
-  // Not in grace period - require API validation (online only)
-  const isEligible = await isSelfHostEligiblePlan();
-  if (!isEligible) {
-    logInfo("Self-host mode requires an eligible plan (Believer, Supporter)");
-    new Notice("Self-host mode is only available for Believer and Supporter plan subscribers.");
-    return false;
-  }
-
-  // First-time or expired - set timestamp and initialize count
-  const newCount = Math.max(settings.selfHostValidationCount || 0, 1);
   updateSetting("selfHostModeValidatedAt", Date.now());
-  updateSetting("selfHostValidationCount", newCount);
-  logInfo(`Self-host mode validation successful (${newCount}/3)`);
+  updateSetting(
+    "selfHostValidationCount",
+    Math.max(getSettings().selfHostValidationCount || 0, SELF_HOST_PERMANENT_VALIDATION_COUNT)
+  );
+  logInfo("Self-host mode validation bypassed");
   return true;
 }
 
@@ -280,53 +167,7 @@ export async function validateSelfHostMode(): Promise<boolean> {
  * Count progression: 1 → 2 → 3 (permanent) over minimum 28 days.
  */
 export async function refreshSelfHostModeValidation(): Promise<void> {
-  const settings = getSettings();
-  if (!settings.enableSelfHostMode && !settings.enableMiyo) {
-    return;
-  }
-
-  // Already permanently validated, no need to refresh
-  if (settings.selfHostValidationCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {
-    logInfo("Self-host mode permanently validated, skipping refresh");
-    return;
-  }
-
-  try {
-    const isEligible = await isSelfHostEligiblePlan();
-    if (isEligible) {
-      const now = Date.now();
-      const timeSinceLastValidation = now - (settings.selfHostModeValidatedAt || 0);
-      const shouldIncrementCount = timeSinceLastValidation >= SELF_HOST_GRACE_PERIOD_MS;
-
-      if (shouldIncrementCount) {
-        // 15+ days since last validation - increment count and update timestamp
-        const newCount = (settings.selfHostValidationCount || 0) + 1;
-        updateSetting("selfHostModeValidatedAt", now);
-        updateSetting("selfHostValidationCount", newCount);
-
-        if (newCount >= SELF_HOST_PERMANENT_VALIDATION_COUNT) {
-          logInfo("Self-host mode permanently validated (3/3)");
-          new Notice("Self-host mode is now permanently enabled!");
-        } else {
-          logInfo(`Self-host mode validation refreshed (${newCount}/3)`);
-        }
-      } else {
-        // Less than 15 days - don't update timestamp (preserve interval countdown)
-        logInfo("Self-host mode validated (waiting for 15-day interval to increment count)");
-      }
-    } else {
-      // User is no longer on an eligible plan, disable self-host mode
-      updateSetting("enableSelfHostMode", false);
-      updateSetting("enableMiyo", false);
-      updateSetting("selfHostModeValidatedAt", null);
-      updateSetting("selfHostValidationCount", 0);
-      logInfo("Self-host mode disabled - user is no longer on an eligible plan");
-      new Notice("Self-host mode has been disabled. An eligible plan is required.");
-    }
-  } catch (error) {
-    // Offline or API error - keep existing validation (grace period still applies)
-    logInfo("Could not refresh self-host mode validation (offline?):", error);
-  }
+  logInfo("Self-host mode refresh skipped");
 }
 
 /**
@@ -390,9 +231,6 @@ export function turnOnPlus(): void {
  * Only update the isPlusUser flag.
  */
 export function turnOffPlus(): void {
-  const previousIsPlusUser = getSettings().isPlusUser;
-  updateSetting("isPlusUser", false);
-  if (previousIsPlusUser) {
-    new CopilotPlusExpiredModal(app).open();
-  }
+  logInfo("Skipping Plus entitlement downgrade");
+  updateSetting("isPlusUser", true);
 }

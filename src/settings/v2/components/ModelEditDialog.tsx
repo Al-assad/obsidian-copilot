@@ -9,7 +9,6 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import {
   ChatModelProviders,
-  EmbeddingModelProviders,
   MODEL_CAPABILITIES,
   ModelCapability,
   ProviderMetadata,
@@ -120,9 +119,7 @@ const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
     localModel.provider as SettingKeyProviders,
     localModel
   );
-  const showOtherParameters =
-    !isEmbeddingModel &&
-    (localModel.provider as EmbeddingModelProviders) !== EmbeddingModelProviders.COPILOT_PLUS_JINA;
+  const showOtherParameters = !isEmbeddingModel;
 
   return (
     <div className="tw-space-y-3 tw-p-4">
@@ -316,7 +313,8 @@ const ModelEditModalContent: React.FC<ModelEditModalContentProps> = ({
                       <div className="tw-text-sm tw-text-muted">
                         Use /v1/responses instead of /v1/chat/completions. Required for Codex-style
                         models and useful for compatible OpenAI-format endpoints. LM Studio also
-                        uses this to patch compatibility issues with text.format and tool definitions.
+                        uses this to patch compatibility issues with text.format and tool
+                        definitions.
                       </div>
                     }
                   >

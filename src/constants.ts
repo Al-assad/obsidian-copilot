@@ -236,16 +236,6 @@ export const MODEL_CAPABILITIES: Record<ModelCapability, string> = {
 export const BUILTIN_CHAT_MODELS: CustomModel[] = [
   // Enabled models first
   {
-    name: ChatModels.COPILOT_PLUS_FLASH,
-    provider: ChatModelProviders.COPILOT_PLUS,
-    enabled: true,
-    isBuiltIn: true,
-    core: true,
-    plusExclusive: true,
-    projectEnabled: false,
-    capabilities: [ModelCapability.VISION],
-  },
-  {
     name: ChatModels.OPENROUTER_GEMINI_2_5_FLASH,
     provider: ChatModelProviders.OPENROUTERAI,
     enabled: true,
@@ -470,36 +460,6 @@ export enum EmbeddingModels {
 
 export const BUILTIN_EMBEDDING_MODELS: CustomModel[] = [
   {
-    name: EmbeddingModels.COPILOT_PLUS_SMALL,
-    provider: EmbeddingModelProviders.COPILOT_PLUS,
-    enabled: true,
-    isBuiltIn: true,
-    isEmbeddingModel: true,
-    core: true,
-    plusExclusive: true,
-  },
-  {
-    name: EmbeddingModels.COPILOT_PLUS_LARGE,
-    provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-    enabled: true,
-    isBuiltIn: true,
-    isEmbeddingModel: true,
-    core: true,
-    plusExclusive: true,
-    believerExclusive: true,
-    dimensions: 1024,
-  },
-  {
-    name: EmbeddingModels.COPILOT_PLUS_MULTILINGUAL,
-    provider: EmbeddingModelProviders.COPILOT_PLUS_JINA,
-    enabled: true,
-    isBuiltIn: true,
-    isEmbeddingModel: true,
-    core: true,
-    plusExclusive: true,
-    dimensions: 512,
-  },
-  {
     name: EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL,
     provider: EmbeddingModelProviders.OPENROUTERAI,
     enabled: true,
@@ -580,7 +540,10 @@ export type Provider = ChatModelProviders | EmbeddingModelProviders;
 
 export type SettingKeyProviders = Exclude<
   ChatModelProviders,
-  ChatModelProviders.OPENAI_FORMAT | ChatModelProviders.LM_STUDIO | ChatModelProviders.OLLAMA
+  | ChatModelProviders.OPENAI_FORMAT
+  | ChatModelProviders.LM_STUDIO
+  | ChatModelProviders.OLLAMA
+  | ChatModelProviders.COPILOT_PLUS
 >;
 
 // Provider metadata interface
@@ -748,7 +711,6 @@ export const ProviderSettingsKeyMap: Record<SettingKeyProviders, keyof CopilotSe
   openrouterai: "openRouterAiApiKey",
   cohereai: "cohereApiKey",
   xai: "xaiApiKey",
-  "copilot-plus": "plusLicenseKey",
   mistralai: "mistralApiKey",
   deepseek: "deepseekApiKey",
   "amazon-bedrock": "amazonBedrockApiKey",
@@ -887,7 +849,7 @@ export const RESTRICTION_MESSAGES = {
 
 export const DEFAULT_SETTINGS: CopilotSettings = {
   userId: uuidv4(),
-  isPlusUser: false,
+  isPlusUser: true,
   plusLicenseKey: "",
   openAIApiKey: "",
   openAIOrgId: "",
@@ -911,7 +873,7 @@ export const DEFAULT_SETTINGS: CopilotSettings = {
   githubCopilotAccessToken: "",
   githubCopilotToken: "",
   githubCopilotTokenExpiresAt: 0,
-  defaultChainType: ChainType.LLM_CHAIN,
+  defaultChainType: ChainType.COPILOT_PLUS_CHAIN,
   defaultModelKey: ChatModels.OPENROUTER_GEMINI_2_5_FLASH + "|" + ChatModelProviders.OPENROUTERAI,
   embeddingModelKey:
     EmbeddingModels.OPENROUTER_OPENAI_EMBEDDING_SMALL + "|" + EmbeddingModelProviders.OPENROUTERAI,

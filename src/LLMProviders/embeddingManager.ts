@@ -1,8 +1,9 @@
 import { CustomModel } from "@/aiParams";
-import { BREVILABS_MODELS_BASE_URL, EmbeddingModelProviders, ProviderInfo } from "@/constants";
+import { EmbeddingModelProviders, ProviderInfo } from "@/constants";
 import { getDecryptedKey } from "@/encryptionService";
 import { CustomError } from "@/error";
 import { logInfo } from "@/logger";
+import { isPlusEnabled } from "@/plusUtils";
 import { getModelKeyFromModel, getSettings, subscribeToSettingsChange } from "@/settings/model";
 import { err2String, safeFetch } from "@/utils";
 import { Embeddings } from "@langchain/core/embeddings";
@@ -10,15 +11,11 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { AzureOpenAIEmbeddings, OpenAIEmbeddings } from "@langchain/openai";
 import { Notice } from "obsidian";
-import { BrevilabsClient } from "./brevilabsClient";
-import { CustomJinaEmbeddings } from "./CustomJinaEmbeddings";
 import { CustomOpenAIEmbeddings } from "./CustomOpenAIEmbeddings";
 
 type EmbeddingConstructorType = new (config: Record<string, unknown>) => Embeddings;
 
 const EMBEDDING_PROVIDER_CONSTRUCTORS = {
-  [EmbeddingModelProviders.COPILOT_PLUS]: CustomOpenAIEmbeddings,
-  [EmbeddingModelProviders.COPILOT_PLUS_JINA]: CustomJinaEmbeddings,
   [EmbeddingModelProviders.OPENAI]: OpenAIEmbeddings,
   [EmbeddingModelProviders.COHEREAI]: OpenAIEmbeddings,
   [EmbeddingModelProviders.GOOGLE]: GoogleGenerativeAIEmbeddings,
@@ -45,9 +42,7 @@ export default class EmbeddingManager {
     }
   >;
 
-  private readonly providerApiKeyMap: Record<EmbeddingModelProviders, () => string> = {
-    [EmbeddingModelProviders.COPILOT_PLUS]: () => getSettings().plusLicenseKey,
-    [EmbeddingModelProviders.COPILOT_PLUS_JINA]: () => getSettings().plusLicenseKey,
+  private readonly providerApiKeyMap = {
     [EmbeddingModelProviders.OPENAI]: () => getSettings().openAIApiKey,
     [EmbeddingModelProviders.COHEREAI]: () => getSettings().cohereApiKey,
     [EmbeddingModelProviders.GOOGLE]: () => getSettings().googleApiKey,
@@ -58,6 +53,10 @@ export default class EmbeddingManager {
     [EmbeddingModelProviders.SILICONFLOW]: () => getSettings().siliconflowApiKey,
     [EmbeddingModelProviders.OPENROUTERAI]: () => getSettings().openRouterAiApiKey,
   };
+
+  private readonly providerApiKeyMapLookup = this.providerApiKeyMap as Partial<
+    Record<EmbeddingModelProviders, () => string>
+  >;
 
   private constructor() {
     this.initialize();
@@ -78,7 +77,10 @@ export default class EmbeddingManager {
   }
 
   getProviderConstructor(model: CustomModel): EmbeddingConstructorType {
-    const constructor = EMBEDDING_PROVIDER_CONSTRUCTORS[model.provider as EmbeddingModelProviders];
+    const constructorMap = EMBEDDING_PROVIDER_CONSTRUCTORS as Partial<
+      Record<EmbeddingModelProviders, EmbeddingConstructorType>
+    >;
+    const constructor = constructorMap[model.provider as EmbeddingModelProviders];
     if (!constructor) {
       console.warn(`Unknown provider: ${model.provider} for model: ${model.name}`);
       throw new Error(`Unknown provider: ${model.provider} for model: ${model.name}`);
@@ -102,8 +104,9 @@ export default class EmbeddingManager {
           return;
         }
         const constructor = this.getProviderConstructor(model);
-        const apiKey =
-          model.apiKey || this.providerApiKeyMap[model.provider as EmbeddingModelProviders]();
+        const providerApiKeyGetter =
+          this.providerApiKeyMapLookup[model.provider as EmbeddingModelProviders];
+        const apiKey = model.apiKey || providerApiKeyGetter?.() || "";
 
         const modelKey = getModelKeyFromModel(model);
         modelMap[modelKey] = {
@@ -147,19 +150,9 @@ export default class EmbeddingManager {
     const customModel = this.getCustomModel(embeddingModelKey);
 
     // Check if model is plus-exclusive but user is not a plus user
-    if (customModel.plusExclusive && !getSettings().isPlusUser) {
+    if (customModel.plusExclusive && !isPlusEnabled()) {
       new Notice("Plus-only model, please consider upgrading to Plus to access it.");
       throw new CustomError("Plus-only model selected but user is not on Plus plan");
-    }
-
-    // Check if model is believer-exclusive but user is not on believer plan
-    if (customModel.believerExclusive) {
-      const brevilabsClient = BrevilabsClient.getInstance();
-      const result = await brevilabsClient.validateLicenseKey();
-      if (!result.plan || result.plan.toLowerCase() !== "believer") {
-        new Notice("Believer-only model, please consider upgrading to Believer to access it.");
-        throw new CustomError("Believer-only model selected but user is not on Believer plan");
-      }
     }
 
     const selectedModel = EmbeddingManager.modelMap[embeddingModelKey];
@@ -207,27 +200,6 @@ export default class EmbeddingManager {
         ConstructorParameters<EmbeddingProviderConstructorMap[K]>[0]
       >;
     } = {
-      [EmbeddingModelProviders.COPILOT_PLUS]: {
-        modelName,
-        apiKey: await getDecryptedKey(settings.plusLicenseKey),
-        timeout: 10000,
-        batchSize: getSettings().embeddingBatchSize,
-        configuration: {
-          baseURL: BREVILABS_MODELS_BASE_URL,
-          fetch: customModel.enableCors ? safeFetch : undefined,
-        },
-      },
-      [EmbeddingModelProviders.COPILOT_PLUS_JINA]: {
-        model: modelName,
-        apiKey: await getDecryptedKey(settings.plusLicenseKey),
-        timeout: 10000,
-        batchSize: getSettings().embeddingBatchSize,
-        dimensions: customModel.dimensions,
-        baseUrl: BREVILABS_MODELS_BASE_URL + "/embeddings",
-        configuration: {
-          fetch: customModel.enableCors ? safeFetch : undefined,
-        },
-      },
       [EmbeddingModelProviders.OPENAI]: {
         modelName,
         apiKey: await getDecryptedKey(customModel.apiKey || settings.openAIApiKey),
@@ -309,7 +281,9 @@ export default class EmbeddingManager {
     };
 
     const selectedProviderConfig =
-      providerConfig[customModel.provider as EmbeddingModelProviders] || {};
+      (providerConfig as Partial<Record<EmbeddingModelProviders, typeof baseConfig>>)[
+        customModel.provider as EmbeddingModelProviders
+      ] || {};
 
     return { ...baseConfig, ...selectedProviderConfig };
   }
