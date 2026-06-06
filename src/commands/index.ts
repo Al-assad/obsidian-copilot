@@ -126,6 +126,19 @@ export function registerCommands(
     await plugin.openChatInNewTab();
   });
 
+  plugin.addCommand({
+    id: COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW,
+    name: COMMAND_NAMES[COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW],
+    icon: COMMAND_ICONS[COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW],
+    // eslint-disable-next-line obsidianmd/commands/no-default-hotkeys -- User-requested shortcut for the main Copilot chat window.
+    hotkeys: [{ modifiers: ["Mod"], key: "J" }],
+    callback: () => {
+      void plugin
+        .openChatInNewTab()
+        .catch((err) => logError(`Command ${COMMAND_IDS.NEW_COPILOT_CHAT_WINDOW} failed`, err));
+    },
+  });
+
   addCommand(plugin, COMMAND_IDS.NEW_CHAT, async () => {
     clearRecordedPromptPayload();
     await plugin.newChat();

@@ -112,6 +112,7 @@ export default class CopilotPlugin extends Plugin {
   private selectionListenerDocument?: Document;
   private lastSelectionSignature?: string;
   private webSelectionTracker?: WebSelectionTracker;
+  private emptyPaneButtonRefreshTimer?: number;
   private readonly chatHistoryLastAccessedAtManager = new RecentUsageManager<string>();
   private currentChatHistory: ChatHistoryItem | null = null;
   private currentChatHistoryListeners: Set<() => void> = new Set();
@@ -218,6 +219,7 @@ export default class CopilotPlugin extends Plugin {
     this.addRibbonIcon("history", "Chat History", () => {
       void this.activateChatHistoryView();
     });
+    this.registerEmptyPaneCopilotButton();
 
     registerCommands(this, undefined, getSettings());
 
@@ -328,6 +330,10 @@ export default class CopilotPlugin extends Plugin {
     }
 
     // Best-effort flush of log file
+    if (this.emptyPaneButtonRefreshTimer) {
+      window.clearTimeout(this.emptyPaneButtonRefreshTimer);
+      this.emptyPaneButtonRefreshTimer = undefined;
+    }
     await logFileManager.flush();
     logInfo("Copilot plugin unloaded");
   }
@@ -385,6 +391,54 @@ export default class CopilotPlugin extends Plugin {
     this.currentChatHistory = chatHistory;
     this.currentChatHistoryListeners.forEach((listener) => listener());
     this.app.workspace.trigger("layout-change");
+  }
+
+  /**
+   * Add a Copilot Chat action to Obsidian's empty pane view.
+   */
+  private registerEmptyPaneCopilotButton(): void {
+    const scheduleRefresh = () => {
+      if (this.emptyPaneButtonRefreshTimer) {
+        window.clearTimeout(this.emptyPaneButtonRefreshTimer);
+      }
+      this.emptyPaneButtonRefreshTimer = window.setTimeout(() => {
+        this.injectEmptyPaneCopilotButtons();
+      }, 50);
+    };
+
+    this.registerEvent(this.app.workspace.on("layout-change", scheduleRefresh));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", scheduleRefresh));
+    this.app.workspace.onLayoutReady(scheduleRefresh);
+  }
+
+  /**
+   * Inject Copilot Chat buttons into each visible empty pane.
+   */
+  private injectEmptyPaneCopilotButtons(): void {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const viewType = leaf.getViewState().type;
+      if (viewType !== "empty") return;
+
+      const contentEl = leaf.view.containerEl;
+      if (contentEl.querySelector("[data-copilot-empty-pane-button='true']")) return;
+
+      const target =
+        contentEl.querySelector<HTMLElement>(".empty-state-action-list") ??
+        contentEl.querySelector<HTMLElement>(".empty-state-container") ??
+        contentEl.querySelector<HTMLElement>(".view-content");
+      if (!target) return;
+
+      const button = contentEl.doc.createElement("button");
+      button.type = "button";
+      button.dataset.copilotEmptyPaneButton = "true";
+      button.className = "empty-state-action tw-mt-2";
+      button.textContent = "Copilot Chat";
+      button.addEventListener("click", () => {
+        void this.openChatInNewTab();
+      });
+
+      target.appendChild(button);
+    });
   }
 
   async autosaveCurrentChat() {
