@@ -428,16 +428,24 @@ export default class CopilotPlugin extends Plugin {
         contentEl.querySelector<HTMLElement>(".view-content");
       if (!target) return;
 
-      const button = contentEl.doc.createElement("button");
-      button.type = "button";
-      button.dataset.copilotEmptyPaneButton = "true";
-      button.className = "empty-state-action tw-mt-2";
-      button.textContent = "Copilot Chat";
-      button.addEventListener("click", () => {
+      const actionEl = contentEl.doc.createElement("div");
+      actionEl.dataset.copilotEmptyPaneButton = "true";
+      actionEl.className = "empty-state-action";
+      actionEl.setAttribute("role", "button");
+      actionEl.setAttribute("tabindex", "0");
+      actionEl.textContent = "Copilot Chat";
+
+      const openChat = () => {
         void this.openChatInNewTab();
+      };
+      actionEl.addEventListener("click", openChat);
+      actionEl.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openChat();
       });
 
-      target.appendChild(button);
+      target.appendChild(actionEl);
     });
   }
 
